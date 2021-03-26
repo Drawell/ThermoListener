@@ -1,17 +1,24 @@
+import random
+from time import sleep
+
 import serial
 import serial.tools.list_ports
+from queue import Queue
+import threading
 
 
 class SerialListener:
     garbage_symbols = ['\r', '\n']
     baud_rate = 9600
 
-    def __init__(self):
+    def __init__(self, serial_message_queue: Queue):
         self.chosen_port = ''
         self._is_need_to_stop = False
         self._is_stopped = True
+        self.queue = serial_message_queue
 
-    def get_all_com_ports(self):
+    @staticmethod
+    def get_all_com_ports():
         ports = serial.tools.list_ports.comports()
         result = []
         for port, desc, hwid in sorted(ports):
@@ -22,18 +29,30 @@ class SerialListener:
     def choose_port(self, port_name: str):
         self.chosen_port = port_name
 
-    def start_listening(self, callback):
-        if self.chosen_port == '':
-            return
+    def start_listening(self):
+        #if self.chosen_port == '':
+        #   return
 
+        listen_thread = threading.Thread(target=self._listen,  daemon=True)
+        listen_thread.start()
+
+    def _listen(self):
         try:
+            while not self._is_need_to_stop:
+                # byte_str = ser.readline()
+                # line = SerialListener._prepare_input(byte_str)
+                sleep(1)
+                line = f'Temp: 0 {str(random.randint(2000, 3000))}'
+                self.queue.put(line)
+            '''
             with serial.Serial(self.chosen_port, SerialListener.baud_rate, timeout=1000) as ser:
                 self._is_stopped = False
                 self._is_need_to_stop = False
                 while not self._is_need_to_stop:
-                    byte_str = ser.readline()  # read a '\n' terminated line
+                    byte_str = ser.readline()
                     line = SerialListener._prepare_input(byte_str)
-                    callback(line)
+                    self.queue.put(line)'''
+
         except Exception as ex:
             raise ex
         finally:
@@ -53,3 +72,5 @@ class SerialListener:
 
     def is_stopped(self):
         return self._is_stopped
+
+
