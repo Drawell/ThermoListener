@@ -9,7 +9,7 @@ import threading
 
 class SerialListener:
     garbage_symbols = ['\r', '\n']
-    baud_rate = 9600
+    baud_rate = 115200
 
     def __init__(self, serial_message_queue: Queue):
         self.chosen_port = ''
@@ -38,20 +38,13 @@ class SerialListener:
 
     def _listen(self):
         try:
-            while not self._is_need_to_stop:
-                # byte_str = ser.readline()
-                # line = SerialListener._prepare_input(byte_str)
-                sleep(1)
-                line = f'Temp: 0 {str(random.randint(2000, 3000))}'
-                self.queue.put(line)
-            '''
             with serial.Serial(self.chosen_port, SerialListener.baud_rate, timeout=1000) as ser:
                 self._is_stopped = False
                 self._is_need_to_stop = False
                 while not self._is_need_to_stop:
                     byte_str = ser.readline()
                     line = SerialListener._prepare_input(byte_str)
-                    self.queue.put(line)'''
+                    self.queue.put(line)
 
         except Exception as ex:
             raise ex
@@ -72,5 +65,35 @@ class SerialListener:
 
     def is_stopped(self):
         return self._is_stopped
+
+
+class MockSerialListener(SerialListener):
+    def __init__(self, serial_message_queue: Queue):
+        super().__init__(serial_message_queue)
+
+    def _listen(self):
+        try:
+            counter = 0
+            toggle = True
+
+            self.queue.put('Maintaining Temp: 2500')
+
+            while not self._is_need_to_stop:
+                if counter == 4:
+                    counter = 0
+                    line = f'Turn ' + ('ON' if toggle else 'OFF')
+                    self.queue.put(line)
+                    toggle = not toggle
+
+                counter += 1
+                sleep(1)
+                line = f'Temp: 0 {str(random.randint(2000, 3000))}'
+                self.queue.put(line)
+
+        except Exception as ex:
+            raise ex
+        finally:
+            self._is_stopped = True
+            self._is_need_to_stop = True
 
 

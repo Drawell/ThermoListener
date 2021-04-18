@@ -21,9 +21,11 @@ def build_message(raw_message: str):
 
 
 class MessageType(enum.Enum):
-    TEMPERATURE_MESSAGE = "Temp: "
     ERROR_MESSAGE = 'Error: '
     MODE_MESSAGE = 'Current mode: '
+    MAINTAINING_TEMP_MESSAGE = 'Maintaining Temp: '
+    TEMPERATURE_MESSAGE = "Temp: "
+    TURN_ON_OFF_MESSAGE = 'Turn '
     SIMPLE_MESSAGE = ''
 
 
@@ -34,4 +36,4 @@ class SerialMessage:
         self.time = datetime.now()
 
     def __str__(self):
-        return self.time.strftime('[%H:%M:%S:ms]') + f' {self.type.value}{self.text}'
+        return self.time.strftime('[%H:%M:%S:%f]') + f' {self.type.value}{self.text}'

@@ -1,9 +1,72 @@
-from sqlalchemy import Column, Integer, String, Sequence
+from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy_serializer import SerializerMixin
 
-from extensions import db
+from DB.db_connection import Base
+from Serial.serial_message import SerialMessage
 
+
+class Session(Base):
+    __tablename__ = 'session'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(60))
+    mode_name = Column(String(60))
+    start_date = Column(Date)
+    maintaining_temperature = Column(Float, nullable=False)
+    temperatures = relationship('Temperature', backref='session', lazy='subquery', cascade="all, delete-orphan")
+    actions = relationship('Action', backref='session', lazy='subquery', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<Session {self.id}>'
+
+
+class Temperature(Base):
+    __tablename__ = 'temperature'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    time = Column(Date)
+    sensor_idx = Column(Integer, nullable=False)
+    temperature = Column(Float, nullable=False)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Temperature {self.id}>'
+
+    def __str__(self):
+        return self.time.strftime('[%H:%M:%S:ms]') + f' {self.type.value}{self.text}'
+
+    @staticmethod
+    def from_serial_message(message: SerialMessage):
+        idx, value = message.text.split(' ')
+        idx = int(idx)
+        value = float(value) / 100
+        result = Temperature()
+        result.time = message.time
+        result.sensor_idx = idx
+        result.temperature = value
+        return result
+
+
+class Action(Base):
+    __tablename__ = 'action'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    time = Column(Date)
+    text = Column(String(50), nullable=False)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Action {self.id}>'
+
+    @staticmethod
+    def from_serial_message(message: SerialMessage):
+        result = Action()
+        result.time = message.time
+        result.text = message.text
+        return result
+
+
+'''
 
 class Template(db.Model, SerializerMixin):
     __tablename__ = 'template'
@@ -116,3 +179,4 @@ class Annotation(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f'<GroupVersionInSheet version:{self.version} sheet:{self.sheet_id}>'
+'''

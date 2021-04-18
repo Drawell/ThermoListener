@@ -8,3 +8,4 @@ venv/
 raw_ui/
 
 sendbox.py
+*.db

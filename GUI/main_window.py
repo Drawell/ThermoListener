@@ -1,64 +1,62 @@
-import os.path
-import time
 from random import randint
 
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QDockWidget, QAction, QFileDialog, QLineEdit, QLabel
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtGui import QIcon
-from pyqtgraph import PlotWidget, plot
-import pyqtgraph as pg
+from PyQt5.QtWidgets import QMainWindow
 
 from queue import Queue
 
-from serial_message import SerialMessage, MessageType
+from DB.model import Temperature
+from Serial.callback import RecordControllerCallback
+from Serial.serial_message import SerialMessage, MessageType
 from .main_window_gui import Ui_MainWindow
-from serial_listener import SerialListener
-from record_controller import RecordController
+from .graph_widget import GraphWidget
+from Serial.serial_listener import SerialListener, MockSerialListener
+from Serial.record_controller import RecordController
+from DB.dao import SQLiteDAO
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(MainWindow, self).__init__(None)
-        self.serial_listener = SerialListener(Queue(maxsize=100))
-        self.record_controller = RecordController(self.serial_listener, self.receive_message)
+        #self.serial_listener = SerialListener(Queue(maxsize=100))
+        self.serial_listener = MockSerialListener(Queue(maxsize=100))
+        self.dao = SQLiteDAO()
+
+        self.controller_callback = RecordControllerCallback()
+
+        self.record_controller = RecordController(self.serial_listener, self.dao, self.controller_callback)
 
         self.setupUi(self)
         self.setup_additional_ui()
 
         self.start_listening()
 
-        self.graphWidget = pg.PlotWidget()
-        self.verticalLayout_2.addWidget(self.graphWidget)
-
-        self.x = [] # list(range(100))  # 100 time points
-        self.y = [] #[randint(0,100) for _ in range(100)]  # 100 data points
-
-        self.graphWidget.setBackground('w')
-
-        self.data_line = self.graphWidget.plot(self.x, self.y)
-        # ... init continued ...
-        self.timer = QtCore.QTimer()
-        self.timer.setInterval(50)
-        self.timer.timeout.connect(self.update_plot_data)
-        #self.timer.start()
-
-    def update_plot_data(self):
-        self.x = self.x[1:]  # Remove the first y element.
-        self.x.append(self.x[-1] + 1)  # Add a new value 1 higher than the last.
-
-        self.y = self.y[1:]  # Remove the first
-        self.y.append(randint(0, 100))  # Add a new random value.
-
-        self.data_line.setData(self.x, self.y)  # Update the data.
-
     def setup_additional_ui(self):
+        self.graph_widget = GraphWidget()
+        self.verticalLayout_3.addWidget(self.graph_widget)
+
         self.connect_ui_signals()
         self.fill_port_combobox()
 
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(500)
+        self.timer.timeout.connect(lambda: self.graph_widget.update())
+        self.timer.start()
+
     def connect_ui_signals(self):
         self.refreshPortsPushButton.clicked.connect(self.fill_port_combobox)
+        self.startRecordPushButton.clicked.connect(self._on_record_button_click)
         self.portListComboBox.currentTextChanged.connect(self.change_port)
+
+        self.controller_callback.on_receive_message = self.receive_message
+        self.controller_callback.on_receive_temperature = self.receive_temperature
+        self.controller_callback.on_receive_turn_on = self.graph_widget.add_action_turn_on
+        self.controller_callback.on_receive_turn_off = self.graph_widget.add_action_turn_off
+
+    def closeEvent(self, event):
+        if self.record_controller.is_recording():
+            self.record_controller.stop_recording()
+        event.accept()
 
     def change_port(self, port_name):
         self.record_controller.stop_listening()
@@ -76,17 +74,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         except Exception as e:
             print(str(e))
 
+    def _on_record_button_click(self):
+        if self.record_controller.is_recording():
+            self.startRecordPushButton.setText('Start recording')
+            self.record_controller.stop_recording()
+        else:
+            self.graph_widget.clear_data()
+            self.startRecordPushButton.setText('Stop recording')
+            self.record_controller.start_recording()
+
+    def add_text_to_message_te(self, text: str):
+        self.portMessagesTextEdit.append(text)
+        self.portMessagesTextEdit.verticalScrollBar().setValue(
+            self.portMessagesTextEdit.verticalScrollBar().maximum())
+
     def receive_message(self, message: SerialMessage):
-        self.portMessagesTextEdit.append(str(message))
-        if message.type == MessageType.TEMPERATURE_MESSAGE:
-            t = int(message.text[2:])
-            self.x.append(message.time.minute * 60 + message.time.second)  # Add a new value 1 higher than the last.
+        self.add_text_to_message_te(str(message))
 
-            if len(self.y) > 50:
-                self.x = self.x[1:]  # Remove the first y element.
-                self.y = self.y[1:]  # Remove the first
+    def receive_temperature(self, temp: Temperature):
+        self.add_text_to_message_te(temp.time.strftime('[%H:%M:%S:%f]') + f'Temperature: {temp.temperature}')
+        self.graph_widget.set_maintaining_temp(self.record_controller.current_session.maintaining_temperature)
+        self.graph_widget.add_temperature(temp)
 
-            self.y.append(t)  # Add a new random value.
 
-            self.data_line.setData(self.x, self.y)  # Update the data.
+
 
