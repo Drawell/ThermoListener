@@ -1,10 +1,30 @@
 import threading
+from functools import wraps
 
 from DB.dao import SQLiteDAO
 from Serial.callback import RecordControllerCallback
 from Serial.serial_listener import SerialListener
 from Serial.serial_message import SerialMessage, build_message, MessageType as Mt
-from DB.model import Session, Temperature, Action
+from DB.model import Session, Temperature, Action, Power
+
+
+def serial_record_message_handler(item_class):
+    def _wrapper(f):
+        @wraps(f)
+        def inner(self, serial_message):
+            try:
+                item = item_class.from_serial_message(serial_message)
+                f(self, item)
+
+                if self.is_recording() and self.current_session.id is not None:
+                    item.session_id = self.current_session.id
+                    self.dao.add_entry(item)
+
+            except Exception as ex:
+                self.handle_exception(str(ex))
+        return inner
+
+    return _wrapper
 
 
 class RecordController:
@@ -25,7 +45,8 @@ class RecordController:
             Mt.MODE_MESSAGE: self._handle_mode_message,
             Mt.MAINTAINING_TEMP_MESSAGE: self._handle_maintaining_temp_message,
             Mt.TEMPERATURE_MESSAGE: self._handle_temperature_message,
-            Mt.TURN_ON_OFF_MESSAGE: self._handle_turn_on_off_message,
+            Mt.POWER_MESSAGE: self._handle_power_message,
+            Mt.ACTION_MESSAGE: self._handle_turn_on_off_message,
             Mt.SIMPLE_MESSAGE: self._handle_simple_message,
         }
 
@@ -38,7 +59,8 @@ class RecordController:
         return self._need_to_record
 
     def start_listening(self):
-        self.serial_listener.start_listening()
+        if self.serial_listener.is_stopped():
+            self.serial_listener.start_listening()
 
     def stop_listening(self):
         self.serial_listener.stop_listening()
@@ -67,40 +89,40 @@ class RecordController:
         if message.type in self.message_handlers:
             self.message_handlers[message.type](message)
 
-        #self.callback.on_receive_message(message)
+        # self.callback.on_receive_message(message)
 
     def _handle_error_message(self, message: SerialMessage):
-        self.callback.on_error()
+        self.callback.on_error(str(message))
         self.stop_recording()
 
     def _handle_mode_message(self, message: SerialMessage):
         self.current_session.mod_name = message.text
-        self.callback.on_receive_message(message.text)
+        self.callback.on_receive_message(str(message))
 
     def _handle_maintaining_temp_message(self, message: SerialMessage):
         self.current_session.maintaining_temperature = float(message.text) / 100
         self.callback.on_receive_message(str(message))
 
-    def _handle_temperature_message(self, message: SerialMessage):
-        temp = Temperature.from_serial_message(message)
+    @serial_record_message_handler(Temperature)
+    def _handle_temperature_message(self, temp: Temperature):
         self.callback.on_receive_temperature(temp)
+        self.callback.on_receive_message(str(temp))
 
-        if self.is_recording() and self.current_session.id is not None:
-            temp.session_id = self.current_session.id
-            self.dao.add_temperature(temp)
-
-    def _handle_turn_on_off_message(self, message: SerialMessage):
-        action = Action.from_serial_message(message)
-        if message.text == 'ON':
+    @serial_record_message_handler(Action)
+    def _handle_turn_on_off_message(self, action):
+        if action.text == 'Turn On':
             self.callback.on_receive_turn_on(action)
-        elif message.text == 'OFF':
+        elif action.text == 'Turn Off':
             self.callback.on_receive_turn_off(action)
 
-        self.callback.on_receive_message(str(message))
+        self.callback.on_receive_message(str(action))
 
-        if self.is_recording():
-            self.dao.add_action(action)
+    @serial_record_message_handler(Power)
+    def _handle_power_message(self, power: Power):
+        self.callback.on_receive_message(str(power))
 
     def _handle_simple_message(self, message: SerialMessage):
         self.callback.on_receive_message(str(message))
 
+    def handle_exception(self, exception):
+        self.callback.on_exception(exception)

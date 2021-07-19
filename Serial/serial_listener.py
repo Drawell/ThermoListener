@@ -8,7 +8,7 @@ import threading
 
 
 class SerialListener:
-    garbage_symbols = ['\r', '\n']
+    garbage_symbols = ['\r', '\n', '\x00']
     baud_rate = 115200
 
     def __init__(self, serial_message_queue: Queue):
@@ -30,8 +30,11 @@ class SerialListener:
         self.chosen_port = port_name
 
     def start_listening(self):
-        #if self.chosen_port == '':
-        #   return
+        if self.chosen_port == '':
+            return
+
+        while self._is_need_to_stop and not self._is_stopped:
+            sleep(0.1)
 
         listen_thread = threading.Thread(target=self._listen,  daemon=True)
         listen_thread.start()
@@ -50,7 +53,7 @@ class SerialListener:
             raise ex
         finally:
             self._is_stopped = True
-            self._is_need_to_stop = True
+            self._is_need_to_stop = False
 
     @staticmethod
     def _prepare_input(byte_str: bytes):

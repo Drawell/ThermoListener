@@ -83,17 +83,6 @@ class GraphWidget(pg.PlotWidget):
 
 
 class DateAxisItem(pg.AxisItem):
-    """
-    A tool that provides a date-time aware axis. It is implemented as an
-    AxisItem that interpretes positions as unix timestamps (i.e. seconds
-    since 1970).
-    The labels and the tick positions are dynamically adjusted depending
-    on the range.
-    It provides a  :meth:`attachToPlotItem` method to add it to a given
-    PlotItem
-    """
-
-    # Max width in pixels reserved for each label in axis
     _pxLabelWidth = 80
 
     def __init__(self, *args, **kwargs):
@@ -101,12 +90,6 @@ class DateAxisItem(pg.AxisItem):
         self._oldAxis = None
 
     def tickValues(self, minVal, maxVal, size):
-        """
-        Reimplemented from PlotItem to adjust to the range and to force
-        the ticks at "round" positions in the context of time units instead of
-        rounding in a decimal base
-        """
-
         maxMajSteps = int(size / self._pxLabelWidth)
 
         dt1 = datetime.fromtimestamp(minVal)

@@ -1,7 +1,7 @@
 from random import randint
 
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
 from queue import Queue
 
@@ -18,8 +18,8 @@ from DB.dao import SQLiteDAO
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(MainWindow, self).__init__(None)
-        #self.serial_listener = SerialListener(Queue(maxsize=100))
-        self.serial_listener = MockSerialListener(Queue(maxsize=100))
+        self.serial_listener = SerialListener(Queue(maxsize=100))
+        #self.serial_listener = MockSerialListener(Queue(maxsize=100))
         self.dao = SQLiteDAO()
 
         self.controller_callback = RecordControllerCallback()
@@ -29,7 +29,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.setup_additional_ui()
 
-        self.start_listening()
+        #self.start_listening()
 
     def setup_additional_ui(self):
         self.graph_widget = GraphWidget()
@@ -48,10 +48,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.startRecordPushButton.clicked.connect(self._on_record_button_click)
         self.portListComboBox.currentTextChanged.connect(self.change_port)
 
+        self.controller_callback.on_error = self.receive_message
         self.controller_callback.on_receive_message = self.receive_message
         self.controller_callback.on_receive_temperature = self.receive_temperature
         self.controller_callback.on_receive_turn_on = self.graph_widget.add_action_turn_on
         self.controller_callback.on_receive_turn_off = self.graph_widget.add_action_turn_off
+        self.controller_callback.on_exception = self.receive_exception
 
     def closeEvent(self, event):
         if self.record_controller.is_recording():
@@ -88,14 +90,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.portMessagesTextEdit.verticalScrollBar().setValue(
             self.portMessagesTextEdit.verticalScrollBar().maximum())
 
-    def receive_message(self, message: SerialMessage):
-        self.add_text_to_message_te(str(message))
+    def receive_message(self, message: str):
+        self.add_text_to_message_te(message)
 
     def receive_temperature(self, temp: Temperature):
-        self.add_text_to_message_te(temp.time.strftime('[%H:%M:%S:%f]') + f'Temperature: {temp.temperature}')
         self.graph_widget.set_maintaining_temp(self.record_controller.current_session.maintaining_temperature)
         self.graph_widget.add_temperature(temp)
 
-
+    def receive_exception(self, exception):
+        print(exception)
+        self.add_text_to_message_te(exception)
+        #msg = QMessageBox()
+        #msg.setText(exception)
+        #msg.setWindowTitle("Exception!")
+        #msg.addButton(QMessageBox.Ok)
+        #msg.exec_()
 
 

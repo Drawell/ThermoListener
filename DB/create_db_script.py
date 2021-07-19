@@ -1,4 +1,4 @@
-from .db_connection import get_engine, Base
-from .model import *
+from DB.db_connection import get_engine, Base
+from DB.model import *
 
 Base.metadata.create_all(bind=get_engine())

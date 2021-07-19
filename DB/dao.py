@@ -2,7 +2,7 @@ from datetime import datetime
 
 from Serial.serial_message import SerialMessage
 from .db_connection import get_engine
-from .model import Session as ModelSession, Temperature, Action
+from .model import Session as ModelSession, Temperature, Action, Power
 from sqlalchemy.orm import sessionmaker
 
 #def _session_wrapper(func):
@@ -32,11 +32,16 @@ class SQLiteDAO:
         return new_session
 
     def add_temperature(self, temp: Temperature):
-        with self.SessionClass() as session:
-            session.add(temp)
-            session.commit()
+        self.add_entry(temp)
 
     def add_action(self, action: Action):
-        with self.SessionClass as session:
-            session.add(action)
-            session.commit()
+        self.add_entry(action)
+
+    def add_power(self, power: Power):
+        self.add_entry(power)
+
+    def add_entry(self, entry):
+        if entry is not None:
+            with self.SessionClass() as session:
+                session.add(entry)
+                session.commit()

@@ -18,6 +18,10 @@ class RecordControllerCallback:
         pass
 
     @callback
+    def on_exception(self):
+        pass
+
+    @callback
     def on_receive_message(self):
         pass
 

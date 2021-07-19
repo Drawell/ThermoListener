@@ -19,6 +19,9 @@ class Session(Base):
     def __repr__(self):
         return f'<Session {self.id}>'
 
+    def __str__(self):
+        return f'Session {self.id}: {self.name}'
+
 
 class Temperature(Base):
     __tablename__ = 'temperature'
@@ -33,11 +36,11 @@ class Temperature(Base):
         return f'<Temperature {self.id}>'
 
     def __str__(self):
-        return self.time.strftime('[%H:%M:%S:ms]') + f' {self.type.value}{self.text}'
+        return self.time.strftime('[%H:%M:%S.%f]') + f'Temperature: {self.temperature}'
 
     @staticmethod
     def from_serial_message(message: SerialMessage):
-        idx, value = message.text.split(' ')
+        idx, value = message.text.split(': ')
         idx = int(idx)
         value = float(value) / 100
         result = Temperature()
@@ -58,6 +61,9 @@ class Action(Base):
     def __repr__(self):
         return f'<Action {self.id}>'
 
+    def __str__(self):
+        return self.time.strftime('[%H:%M:%S.%f]') + f'Action: {self.text}'
+
     @staticmethod
     def from_serial_message(message: SerialMessage):
         result = Action()
@@ -65,6 +71,27 @@ class Action(Base):
         result.text = message.text
         return result
 
+
+class Power(Base):
+    __tablename__ = 'power'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    time = Column(Date)
+    power = Column(Integer, nullable=False)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Power {self.id}>'
+
+    def __str__(self):
+        return self.time.strftime('[%H:%M:%S.%f]') + f'Power: {self.power}'
+
+    @staticmethod
+    def from_serial_message(message: SerialMessage):
+        result = Power()
+        result.time = message.time
+        result.power = int(message.text)
+        return result
 
 '''
 
