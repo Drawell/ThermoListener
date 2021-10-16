@@ -85,6 +85,8 @@ class RecordController:
 
     def _handle_message(self, raw_message):
         message = build_message(raw_message)
+        if message is None:
+            return
 
         if message.type in self.message_handlers:
             self.message_handlers[message.type](message)

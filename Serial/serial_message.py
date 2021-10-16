@@ -3,6 +3,9 @@ from datetime import datetime
 
 
 def build_message(raw_message: str):
+    if raw_message == '' or raw_message == '\n' or raw_message == '\r':
+        return None
+
     message = SerialMessage()
 
     found = False

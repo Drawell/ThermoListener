@@ -50,7 +50,8 @@ class SerialListener:
                     self.queue.put(line)
 
         except Exception as ex:
-            raise ex
+            #raise ex
+            self.queue.put('Error: Serial Line Error')
         finally:
             self._is_stopped = True
             self._is_need_to_stop = False
