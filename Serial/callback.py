@@ -44,3 +44,7 @@ class RecordControllerCallback:
     @callback
     def on_receive_turn_off(self):
         pass
+
+    @callback
+    def on_receive_power(self):
+        pass

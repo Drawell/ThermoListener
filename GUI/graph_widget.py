@@ -6,7 +6,7 @@ from time import mktime
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
 
-from DB.model import Temperature, Action
+from DB.model import Temperature, Action, Power
 
 
 class PlotAndData:
@@ -42,7 +42,10 @@ class GraphWidget(pg.PlotWidget):
         self.action_turn_on_plot = PlotAndData(self.plot(pen=None, symbol='o'))
         self.action_turn_off_plot = PlotAndData(self.plot(pen=None, symbol='x'))
         self.maintaining_temp_plot = PlotAndData(
-            self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 50, 255), width=1, style=QtCore.Qt.SolidLine)))
+            self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 255, 50), width=1, style=QtCore.Qt.SolidLine)))
+
+        self.power_plot = PlotAndData(
+            self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 50, 255), width=3, style=QtCore.Qt.SolidLine)))
 
         self.maintaining_temp = 0
 
@@ -50,12 +53,17 @@ class GraphWidget(pg.PlotWidget):
         self.temp_plot.clear()
         self.action_turn_on_plot.clear()
         self.action_turn_off_plot.clear()
+        self.power_plot.clear()
 
     def set_maintaining_temp(self, temp):
         self.maintaining_temp = temp
 
     def add_temperature(self, temp: Temperature):
         self.temp_plot.add(temp.temperature, temp.time.timestamp())
+        self._update_maintaining_temp()
+
+    def add_power(self, power: Power):
+        self.power_plot.add(power.power, power.time.timestamp())
         self._update_maintaining_temp()
 
     def _update_maintaining_temp(self):
@@ -80,6 +88,7 @@ class GraphWidget(pg.PlotWidget):
         self.action_turn_on_plot.update()
         self.action_turn_off_plot.update()
         self.maintaining_temp_plot.update()
+        self.power_plot.update()
 
 
 class DateAxisItem(pg.AxisItem):

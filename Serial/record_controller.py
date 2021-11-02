@@ -122,6 +122,7 @@ class RecordController:
     @serial_record_message_handler(Power)
     def _handle_power_message(self, power: Power):
         self.callback.on_receive_message(str(power))
+        self.callback.on_receive_power(power)
 
     def _handle_simple_message(self, message: SerialMessage):
         self.callback.on_receive_message(str(message))

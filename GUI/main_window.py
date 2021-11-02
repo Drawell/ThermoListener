@@ -7,7 +7,6 @@ from queue import Queue
 
 from DB.model import Temperature
 from Serial.callback import RecordControllerCallback
-from Serial.serial_message import SerialMessage, MessageType
 from .main_window_gui import Ui_MainWindow
 from .graph_widget import GraphWidget
 from Serial.serial_listener import SerialListener, MockSerialListener
@@ -47,12 +46,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.refreshPortsPushButton.clicked.connect(self.fill_port_combobox)
         self.startRecordPushButton.clicked.connect(self._on_record_button_click)
         self.portListComboBox.currentTextChanged.connect(self.change_port)
+        self.resetButton.clicked.connect(self.reset)
 
         self.controller_callback.on_error = self.receive_message
         self.controller_callback.on_receive_message = self.receive_message
         self.controller_callback.on_receive_temperature = self.receive_temperature
         self.controller_callback.on_receive_turn_on = self.graph_widget.add_action_turn_on
         self.controller_callback.on_receive_turn_off = self.graph_widget.add_action_turn_off
+        self.controller_callback.on_receive_power = self.graph_widget.add_power
         self.controller_callback.on_exception = self.receive_exception
 
     def closeEvent(self, event):
@@ -84,6 +85,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.graph_widget.clear_data()
             self.startRecordPushButton.setText('Stop recording')
             self.record_controller.start_recording()
+
+    def reset(self):
+        self.graph_widget.clear_data()
+        self.portMessagesTextEdit.clear()
 
     def add_text_to_message_te(self, text: str):
         self.portMessagesTextEdit.append(text)
