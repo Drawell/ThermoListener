@@ -51,12 +51,21 @@ class RecordController:
         }
 
     def set_current_session_as_new(self):
-        self.current_session = Session()
-        self.current_session.id = None
-        self.current_session.maintaining_temperature = 0
+        new_session = Session()
+        new_session.id = None
+        new_session.maintaining_temperature = 0
+
+        if self.current_session is not None:
+            new_session.maintaining_temperature = self.current_session.maintaining_temperature
+            new_session.mode_name = self.current_session.mode_name
+
+        self.current_session = new_session
 
     def is_recording(self):
         return self._need_to_record
+
+    def is_stopped(self):
+        return self.serial_listener.is_stopped()
 
     def start_listening(self):
         if self.serial_listener.is_stopped():
@@ -73,6 +82,7 @@ class RecordController:
     def stop_recording(self):
         self._need_to_record = False
         self.set_current_session_as_new()
+        self.callback.on_add_new_session()
 
     def _start_queue_listening_thread(self):
         listen_thread = threading.Thread(target=self._listen, daemon=True)
@@ -98,7 +108,7 @@ class RecordController:
         self.stop_recording()
 
     def _handle_mode_message(self, message: SerialMessage):
-        self.current_session.mod_name = message.text
+        self.current_session.mode_name = message.text
         self.callback.on_receive_message(str(message))
 
     def _handle_maintaining_temp_message(self, message: SerialMessage):

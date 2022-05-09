@@ -101,8 +101,11 @@ class DateAxisItem(pg.AxisItem):
     def tickValues(self, minVal, maxVal, size):
         maxMajSteps = int(size / self._pxLabelWidth)
 
-        dt1 = datetime.fromtimestamp(minVal)
-        dt2 = datetime.fromtimestamp(maxVal)
+        try:
+            dt1 = datetime.fromtimestamp(minVal)
+            dt2 = datetime.fromtimestamp(maxVal)
+        except Exception as e:
+            return
 
         dx = maxVal - minVal
         majticks = []

@@ -1,11 +1,13 @@
 from datetime import datetime
+from typing import List
 
 from Serial.serial_message import SerialMessage
 from .db_connection import get_engine
 from .model import Session as ModelSession, Temperature, Action, Power
 from sqlalchemy.orm import sessionmaker
 
-#def _session_wrapper(func):
+
+# def _session_wrapper(func):
 
 
 class SQLiteDAO:
@@ -13,8 +15,20 @@ class SQLiteDAO:
         self.engine = get_engine()
         self.SessionClass = sessionmaker(self.engine)
 
-    def get_all_sessions(self):
-        pass
+    def get_all_sessions(self) -> List[ModelSession]:
+        with self.SessionClass() as sess:
+            sessions = sess.query(ModelSession).order_by(ModelSession.start_date.desc()).all()
+        return sessions
+
+    def remove_session(self, session_: ModelSession):
+        with self.SessionClass() as sess:
+            sess.delete(session_)
+            sess.commit()
+
+    def update_session(self, session_: ModelSession):
+        with self.SessionClass() as sess:
+            sess.add(session_)
+            sess.commit()
 
     def create_session(self, session_: ModelSession):
         session_.start_date = datetime.now()

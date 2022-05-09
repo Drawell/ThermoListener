@@ -36,6 +36,7 @@ class SerialListener:
         while self._is_need_to_stop and not self._is_stopped:
             sleep(0.1)
 
+        self._is_need_to_stop = False
         listen_thread = threading.Thread(target=self._listen,  daemon=True)
         listen_thread.start()
 
@@ -53,6 +54,7 @@ class SerialListener:
             #raise ex
             self.queue.put('Error: Serial Line Error')
         finally:
+            print('stopped')
             self._is_stopped = True
             self._is_need_to_stop = False
 
@@ -75,28 +77,31 @@ class MockSerialListener(SerialListener):
     def __init__(self, serial_message_queue: Queue):
         super().__init__(serial_message_queue)
 
+    def start_listening(self):
+        while self._is_need_to_stop and not self._is_stopped:
+            sleep(0.1)
+
+        self._is_need_to_stop = False
+        listen_thread = threading.Thread(target=self._listen,  daemon=True)
+        listen_thread.start()
+
     def _listen(self):
         try:
-            counter = 0
-            toggle = True
-
             self.queue.put('Maintaining Temp: 2500')
+            self.queue.put('Current mode: pid')
 
             while not self._is_need_to_stop:
-                if counter == 4:
-                    counter = 0
-                    line = f'Turn ' + ('ON' if toggle else 'OFF')
-                    self.queue.put(line)
-                    toggle = not toggle
-
-                counter += 1
-                sleep(1)
-                line = f'Temp: 0 {str(random.randint(2000, 3000))}'
+                line = f'Power: {str(random.randint(35, 45))}\n'
                 self.queue.put(line)
+                sleep(0.01)
+                line = f'Temp: 0: {str(random.randint(2000, 3000))}\n'
+                self.queue.put(line)
+                sleep(1)
 
         except Exception as ex:
             raise ex
         finally:
+            print('stopped')
             self._is_stopped = True
             self._is_need_to_stop = True
 

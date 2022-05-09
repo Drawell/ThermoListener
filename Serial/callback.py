@@ -1,5 +1,3 @@
-
-
 def callback(func):
     def set(self, value):
         self.callback_functions[func.__name__] = value
@@ -47,4 +45,8 @@ class RecordControllerCallback:
 
     @callback
     def on_receive_power(self):
+        pass
+
+    @callback
+    def on_add_new_session(self):
         pass
