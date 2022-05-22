@@ -4,6 +4,7 @@ from pyqtgraph import AxisItem
 from datetime import datetime, timedelta
 from time import mktime
 import pyqtgraph as pg
+import pyqtgraph.exporters as exporters
 from PyQt5 import QtCore, QtGui
 
 from DB.model import Temperature, Action, Power
@@ -48,6 +49,7 @@ class GraphWidget(pg.PlotWidget):
             self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 50, 255), width=3, style=QtCore.Qt.SolidLine)))
 
         self.maintaining_temp = 0
+        self.plotItem.showGrid(x=True, y=True, alpha=0.2)
 
     def clear_data(self):
         self.temp_plot.clear()
@@ -73,7 +75,7 @@ class GraphWidget(pg.PlotWidget):
 
             self.maintaining_temp_plot.timeline[0] = self.temp_plot.timeline[0]
             self.maintaining_temp_plot.timeline[1] = self.temp_plot.timeline[
-                                                         len(self.temp_plot.timeline) - 1]
+                len(self.temp_plot.timeline) - 1]
 
     def add_action_turn_on(self, action: Action):
         value = self.temp_plot.data[len(self.temp_plot.data) - 1]
@@ -89,6 +91,14 @@ class GraphWidget(pg.PlotWidget):
         self.action_turn_off_plot.update()
         self.maintaining_temp_plot.update()
         self.power_plot.update()
+
+    def export_to_file(self):
+        now = datetime.now()
+        name = now.strftime('%Y.%m.%d %H.%M')
+        name = f"plots\\plot {name}.png"
+        exporter = pg.exporters.ImageExporter(self.plotItem)
+        exporter.parameters()['width'] = 1000
+        exporter.export(name)
 
 
 class DateAxisItem(pg.AxisItem):

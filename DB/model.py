@@ -13,9 +13,13 @@ class Session(Base):
     mode_name = Column(String(60))
     start_date = Column(DateTime)
     maintaining_temperature = Column(Float, nullable=False)
-    temperatures = relationship('Temperature', backref='session', lazy='subquery', cascade="all, delete-orphan")
-    powers = relationship('Power', backref='session', lazy='subquery', cascade="all, delete-orphan")
-    actions = relationship('Action', backref='session', lazy='subquery', cascade="all, delete-orphan")
+
+    temperatures = relationship('Temperature', backref='session', lazy='subquery', cascade="all, delete-orphan",
+                                order_by='Temperature.time')
+    powers = relationship('Power', backref='session', lazy='subquery', cascade="all, delete-orphan",
+                          order_by='Power.time')
+    actions = relationship('Action', backref='session', lazy='subquery', cascade="all, delete-orphan",
+                           order_by='Action.time')
 
     def __repr__(self):
         return f'<Session {self.id}>'

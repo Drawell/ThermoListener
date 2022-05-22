@@ -6,6 +6,7 @@ venv/
 .idea/
 
 raw_ui/
+plots/
 
 sendbox.py
 *.db
