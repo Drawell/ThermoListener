@@ -122,11 +122,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def receive_exception(self, exception):
         print(exception)
         self.add_text_to_message_te(exception)
-        # msg = QMessageBox()
-        # msg.setText(exception)
-        # msg.setWindowTitle("Exception!")
-        # msg.addButton(QMessageBox.Ok)
-        # msg.exec_()
 
     def show_session(self, session: Session):
         self.graph_widget.clear_data()
@@ -135,20 +130,43 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.metric_calculator.clear()
         self.metric_calculator.maintaining_temperature = session.maintaining_temperature
 
-        for temp in session.temperatures:
-            self.graph_widget.add_temperature(temp)
-            self.metric_calculator.add_temperature(temp)
-        for power in session.powers:
-            self.graph_widget.add_power(power)
+        self._load_temp_and_power(session, True)
 
         self.print_metrics()
         self.record_controller.stop_listening()
         self.resetButton.setText('Продолжить слушать')
         self.isRecordingLabel.setText('Смотрим...')
 
+    def _load_temp_and_power(self, session, clip=False):
+        min_temp = 30
+        record_time = 60 * 7  # 5 7
+        if clip:
+            clip_timestamp = None
+            for temp in session.temperatures:
+                if clip_timestamp is not None:
+                    if (temp.time - clip_timestamp).total_seconds() > record_time:
+                        break
+
+                if temp.temperature > min_temp:
+                    self.graph_widget.add_temperature(temp)
+                    self.metric_calculator.add_temperature(temp)
+
+                    if clip_timestamp is None:
+                        clip_timestamp = temp.time
+
+            for power in session.powers:
+                if power.time >= clip_timestamp and (power.time - clip_timestamp).total_seconds() <= record_time:
+                    self.graph_widget.add_power(power)
+        else:
+            for temp in session.temperatures:
+                self.graph_widget.add_temperature(temp)
+                self.metric_calculator.add_temperature(temp)
+            for power in session.powers:
+                self.graph_widget.add_power(power)
+
     def print_metrics(self):
         max_overheat = self.metric_calculator.max_overheat
-        self.labelMaxOverheat.setText(str(max_overheat) + ' °C' if max_overheat else '-')
+        self.labelMaxOverheat.setText('%.2f °C' % max_overheat if max_overheat else '-')
 
         deviation = self.metric_calculator.deviation
         self.labelDeviation.setText('%.2f' % deviation if deviation else '-')

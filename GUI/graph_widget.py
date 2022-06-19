@@ -1,6 +1,6 @@
 import math
 
-from pyqtgraph import AxisItem
+from pyqtgraph import AxisItem, LegendItem
 from datetime import datetime, timedelta
 from time import mktime
 import pyqtgraph as pg
@@ -33,25 +33,44 @@ class GraphWidget(pg.PlotWidget):
     def __init__(self):
         pg.PlotWidget.__init__(self)
         self.setBackground('w')
-
-        date_axis = DateAxisItem(orientation='bottom')
-        date_axis.attachToPlotItem(self.getPlotItem())
-        self.axisItems = {'bottom': date_axis}
-
-        self.temp_plot = PlotAndData(
-            self.plot(pen=pg.mkPen(color=QtGui.QColor(255, 0, 0), width=3, style=QtCore.Qt.SolidLine)))
-        self.action_turn_on_plot = PlotAndData(self.plot(pen=None, symbol='o'))
-        self.action_turn_off_plot = PlotAndData(self.plot(pen=None, symbol='x'))
-        self.maintaining_temp_plot = PlotAndData(
-            self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 255, 50), width=1, style=QtCore.Qt.SolidLine)))
-
-        self.power_plot = PlotAndData(
-            self.plot(pen=pg.mkPen(color=QtGui.QColor(50, 50, 255), width=3, style=QtCore.Qt.SolidLine)))
+        self.start_time = None
 
         self.maintaining_temp = 0
+
+        self.plotItem.addLegend(offset=(-30, 30),
+                                labelTextSize='12pt',
+                                labelTextColor='k')
+
+        self.temp_plot = PlotAndData(self.plot(name='Текущая температура',
+                                               pen=pg.mkPen(color=QtGui.QColor(255, 0, 0), width=3,
+                                                            style=QtCore.Qt.SolidLine)))
+        self.action_turn_on_plot = PlotAndData(self.plot(pen=None, symbol='o'))
+        self.action_turn_off_plot = PlotAndData(self.plot(pen=None, symbol='x'))
+        self.maintaining_temp_plot = PlotAndData(self.plot(name='Поддерживаемая температура',
+                                                           pen=pg.mkPen(color=QtGui.QColor(50, 255, 50), width=1,
+                                                                        style=QtCore.Qt.SolidLine)))
+
+        self.power_plot = PlotAndData(self.plot(name='Мощность',
+                                                pen=pg.mkPen(color=QtGui.QColor(50, 50, 255),
+                                                             width=3,
+                                                             style=QtCore.Qt.SolidLine)
+                                                ))
+
+        label_style = {'color': '#000', 'font-size': '12pt'}
+        self.plotItem.setLabel('bottom', "Время (сек.)", '', **label_style)
+        self.plotItem.setLabel('left', "Температура (°C) / Мощность (%)", **label_style)
+
+        font = QtGui.QFont()
+        font.setPixelSize(20)
+        self.plotItem.getAxis("bottom").setStyle(tickFont=font)
+        self.plotItem.getAxis("bottom").setTextPen('k')
+        self.plotItem.getAxis("left").setStyle(tickFont=font, tickAlpha=1)
+        self.plotItem.getAxis("left").setTextPen('k')
+
         self.plotItem.showGrid(x=True, y=True, alpha=0.2)
 
     def clear_data(self):
+        self.start_time = None
         self.temp_plot.clear()
         self.action_turn_on_plot.clear()
         self.action_turn_off_plot.clear()
@@ -61,12 +80,18 @@ class GraphWidget(pg.PlotWidget):
         self.maintaining_temp = temp
 
     def add_temperature(self, temp: Temperature):
-        self.temp_plot.add(temp.temperature, temp.time.timestamp())
+        self.temp_plot.add(temp.temperature, self._get_timestamp(temp.time))
         self._update_maintaining_temp()
 
     def add_power(self, power: Power):
-        self.power_plot.add(power.power, power.time.timestamp())
+        self.power_plot.add(power.power, self._get_timestamp(power.time))
         self._update_maintaining_temp()
+
+    def _get_timestamp(self, time: datetime):
+        if self.start_time is None:
+            self.start_time = time.timestamp()
+
+        return int(time.timestamp() - self.start_time)
 
     def _update_maintaining_temp(self):
         if len(self.temp_plot.data) > 2:
@@ -94,151 +119,8 @@ class GraphWidget(pg.PlotWidget):
 
     def export_to_file(self):
         now = datetime.now()
-        name = now.strftime('%Y.%m.%d %H.%M')
+        name = now.strftime('%Y.%m.%d %H.%M.%S.%f')
         name = f"plots\\plot {name}.png"
         exporter = pg.exporters.ImageExporter(self.plotItem)
-        exporter.parameters()['width'] = 1000
+        exporter.parameters()['width'] = 1200
         exporter.export(name)
-
-
-class DateAxisItem(pg.AxisItem):
-    _pxLabelWidth = 80
-
-    def __init__(self, *args, **kwargs):
-        AxisItem.__init__(self, *args, **kwargs)
-        self._oldAxis = None
-
-    def tickValues(self, minVal, maxVal, size):
-        maxMajSteps = int(size / self._pxLabelWidth)
-
-        try:
-            dt1 = datetime.fromtimestamp(minVal)
-            dt2 = datetime.fromtimestamp(maxVal)
-        except Exception as e:
-            return
-
-        dx = maxVal - minVal
-        majticks = []
-
-        if dx > 63072001:  # 3600s*24*(365+366) = 2 years (count leap year)
-            d = timedelta(days=366)
-            for y in range(dt1.year + 1, dt2.year):
-                dt = datetime(year=y, month=1, day=1)
-                majticks.append(mktime(dt.timetuple()))
-
-        elif dx > 5270400:  # 3600s*24*61 = 61 days
-            d = timedelta(days=31)
-            dt = dt1.replace(day=1, hour=0, minute=0,
-                             second=0, microsecond=0) + d
-            while dt < dt2:
-                # make sure that we are on day 1 (even if always sum 31 days)
-                dt = dt.replace(day=1)
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 172800:  # 3600s24*2 = 2 days
-            d = timedelta(days=1)
-            dt = dt1.replace(hour=0, minute=0, second=0, microsecond=0) + d
-            while dt < dt2:
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 7200:  # 3600s*2 = 2hours
-            d = timedelta(hours=1)
-            dt = dt1.replace(minute=0, second=0, microsecond=0) + d
-            while dt < dt2:
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 1200:  # 60s*20 = 20 minutes
-            d = timedelta(minutes=10)
-            dt = dt1.replace(minute=(dt1.minute // 10) * 10,
-                             second=0, microsecond=0) + d
-            while dt < dt2:
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 120:  # 60s*2 = 2 minutes
-            d = timedelta(minutes=1)
-            dt = dt1.replace(second=0, microsecond=0) + d
-            while dt < dt2:
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 20:  # 20s
-            d = timedelta(seconds=10)
-            dt = dt1.replace(second=(dt1.second // 10) * 10, microsecond=0) + d
-            while dt < dt2:
-                majticks.append(mktime(dt.timetuple()))
-                dt += d
-
-        elif dx > 2:  # 2s
-            d = timedelta(seconds=1)
-            majticks = range(int(minVal), int(maxVal))
-
-        else:  # <2s , use standard implementation from parent
-            return AxisItem.tickValues(self, minVal, maxVal, size)
-
-        L = len(majticks)
-        if L > maxMajSteps:
-            majticks = majticks[::int(math.ceil(float(L) / maxMajSteps))]
-
-        return [(d.total_seconds(), majticks)]
-
-    def tickStrings(self, values, scale, spacing):
-        """Reimplemented from PlotItem to adjust to the range"""
-        ret = []
-        if not values:
-            return []
-
-        if spacing >= 31622400:  # 366 days
-            fmt = "%Y"
-
-        elif spacing >= 2678400:  # 31 days
-            fmt = "%Y %b"
-
-        elif spacing >= 86400:  # = 1 day
-            fmt = "%b/%d"
-
-        elif spacing >= 3600:  # 1 h
-            fmt = "%b/%d-%Hh"
-
-        elif spacing >= 60:  # 1 m
-            fmt = "%H:%M"
-
-        elif spacing >= 1:  # 1s
-            fmt = "%H:%M:%S"
-
-        else:
-            # less than 2s (show microseconds)
-            # fmt = '%S.%f"'
-            fmt = '[+%fms]'  # explicitly relative to last second
-
-        for x in values:
-            try:
-                t = datetime.fromtimestamp(x)
-                ret.append(t.strftime(fmt))
-            except ValueError:  # Windows can't handle dates before 1970
-                ret.append('')
-
-        return ret
-
-    def attachToPlotItem(self, plotItem):
-        """Add this axis to the given PlotItem
-        :param plotItem: (PlotItem)
-        """
-        self.setParentItem(plotItem)
-        viewBox = plotItem.getViewBox()
-        self.linkToView(viewBox)
-        self._oldAxis = plotItem.axes[self.orientation]['item']
-        self._oldAxis.hide()
-        plotItem.axes[self.orientation]['item'] = self
-        pos = plotItem.axes[self.orientation]['pos']
-        plotItem.layout.addItem(self, *pos)
-        self.setZValue(-1000)
-
-    def detachFromPlotItem(self):
-        """Remove this axis from its attached PlotItem
-        (not yet implemented)
-        """
-        raise NotImplementedError()  # TODO
